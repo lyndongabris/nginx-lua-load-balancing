@@ -1,0 +1,29 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-app-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      access_by_lua_file /etc/nginx/custom-lua/pool-selection.lua;
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location @webapp1 {
+        proxy_pass http://web-app-1-service.default.svc.cluster.local:8080;
+      }
+      location @webapp2 {
+        proxy_pass http://web-app-2-service.default.svc.cluster.local:8080;
+      }
+      location @reject {
+        return 403;
+      }
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-app-2-service
+            port:
+              number: 8080
+    # host: "webapp.local"
