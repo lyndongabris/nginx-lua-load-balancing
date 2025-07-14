@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lua-scripts
+data:
+  pool-selection.lua: |
+    --[[ local uri = ngx.var.request_uri
+    local special_list = { "special", "foo", "bar" }
+
+    for _, value in ipairs(special_list) do
+      if string.find(uri, value, 1, true) then
+        return ngx.exec("@webapp1")
+      end
+    end
+
+    return ngx.exec("@webapp2")
+
+
+    local ip = ngx.var.remote_addr
+    ngx.log(ngx.NOTICE, "Current IP: " .. ip)
+
+    if string.find(ip, ":", 1, true) then
+      return ngx.exec("@webapp1")
+    else
+      return ngx.exec("@webapp2")
+    end
+    ]]
+    ngx.log(ngx.NOTICE, "Update package path")
+    package.path = "/etc/nginx/custom-lua/?.lua;" .. package.path
+    ngx.log(ngx.NOTICE, "Package path updated to: " .. package.path)
+
+    ngx.log(ngx.NOTICE, "Loading config..")
+    local config = require "pool-config"
+    local uri = ngx.var.uri
+
+    ngx.log(ngx.NOTICE, "URI extracted:" .. uri)
+    local first_segment = uri:match("^/([^/]+)")
+    ngx.log(ngx.NOTICE, "Request URI: ", uri, " -> First segment: ", first_segment)
+    local pool = config.allowed_paths[first_segment]
+    if pool then
+      ngx.log(ngx.NOTICE, "Matched pool: ", pool)
+      return ngx.exec(pool)
+    else
+      ngx.log(ngx.WARN, "No matching pool for: ", first_segment, " - rejecting")
+      return ngx.exec(config.default_pool)
+    end
